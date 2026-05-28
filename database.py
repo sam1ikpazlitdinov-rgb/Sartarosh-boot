@@ -1,9 +1,8 @@
 import sqlite3
 from datetime import datetime, timedelta
-from typing import List, Optional
 
 class Database:
-    def __init__(self, db_path: str = "sartaroshxona.db"):
+    def __init__(self, db_path="sartaroshxona.db"):
         self.db_path = db_path
         self.init_db()
 
@@ -14,27 +13,18 @@ class Database:
 
     def init_db(self):
         with self.get_conn() as conn:
-            conn.executescript("""
-                CREATE TABLE IF NOT EXISTS users (
-                    user_id     INTEGER PRIMARY KEY,
-                    name        TEXT,
-                    username    TEXT,
-                    phone       TEXT,
-                    created_at  TEXT DEFAULT (datetime('now')),
-                    last_reminded TEXT
-                );
-                CREATE TABLE IF NOT EXISTS bookings (
-                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id    INTEGER,
-                    phone      TEXT,
-                    date       TEXT,
-                    time       TEXT,
-                    service    TEXT,
-                    status     TEXT DEFAULT 'pending',
-                    created_at TEXT DEFAULT (datetime('now')),
-                    FOREIGN KEY (user_id) REFERENCES users(user_id)
-                );
-            """)
+            conn.execute("""CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY,
+                name TEXT, username TEXT, phone TEXT,
+                created_at TEXT DEFAULT (datetime('now')),
+                last_reminded TEXT)""")
+            conn.execute("""CREATE TABLE IF NOT EXISTS bookings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER, phone TEXT, date TEXT,
+                time TEXT, service TEXT,
+                status TEXT DEFAULT 'pending',
+                created_at TEXT DEFAULT (datetime('now')))""")
+            conn.commit()
 
     def add_user(self, user_id, name, username):
         with self.get_conn() as conn:
@@ -70,4 +60,15 @@ class Database:
 
     def get_booked_times(self, date):
         with self.get_conn() as conn:
-            rows = conn.execute("SELECT time FROM bookings WHERE date = ?
+            rows = conn.execute("SELECT time FROM bookings WHERE date = ? AND status != 'rejected'", (date,)).fetchall()
+        return [r['time'] for r in rows]
+
+    def get_user_bookings(self, user_id):
+        with self.get_conn() as conn:
+            rows = conn.execute("SELECT * FROM bookings WHERE user_id = ? ORDER BY date DESC LIMIT 10", (user_id,)).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_day_bookings(self, date):
+        with self.get_conn() as conn:
+            rows = conn.execute("SELECT * FROM bookings WHERE date = ? ORDER BY time", (date,)).fetchall()
+        return [dict(r) for r in rows]
